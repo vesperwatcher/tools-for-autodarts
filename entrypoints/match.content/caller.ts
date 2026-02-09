@@ -486,6 +486,46 @@ async function processGameData(gameData: IGameData, oldGameData: IGameData, from
     }
   }
 
+  // Check for corrections (same turn index, same number of throws, but different content)
+  const oldTurn = oldGameData?.match?.turns?.[0];
+  const newTurn = gameData.match.turns[0];
+
+  if (oldTurn && newTurn && oldTurn.throws && newTurn.throws && oldTurn.throws.length === newTurn.throws.length && newTurn.throws.length > 0) {
+    const mismatchIndex = newTurn.throws.findIndex((t, i) => {
+      const oldT = oldTurn.throws[i];
+      return !oldT || t.segment.name !== oldT.segment.name;
+    });
+
+    if (mismatchIndex !== -1) {
+      console.log("Autodarts Tools: Correction detected");
+      
+      if (config.caller.callEveryDart) {
+        const correctedThrow = newTurn.throws[mismatchIndex];
+        const throwName = correctedThrow.segment.name;
+        const throwBed = correctedThrow.segment.bed;
+
+        // Special case for S25
+        if (throwName.toLowerCase() === "25" && throwBed === "Single") {
+          const hasS25Sound = config.caller.sounds?.some(sound =>
+            sound.enabled && sound.triggers && sound.triggers.includes("s25"),
+          );
+          if (hasS25Sound) {
+            playSound("s25");
+          } else {
+            playSound(throwName.toLowerCase());
+          }
+        } else {
+          playSound(throwName.toLowerCase());
+        }
+      }
+      
+      const points = newTurn.points;
+      playSound(points.toString());
+      
+      return;
+    }
+  }
+
   const currentThrow = gameData.match.turns[0].throws[gameData.match.turns[0].throws.length - 1];
   if (!currentThrow) return;
 
